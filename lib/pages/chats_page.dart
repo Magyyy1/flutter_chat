@@ -29,8 +29,22 @@ class _ChatsPageState extends State<ChatsPage> {
   void initState() {
     super.initState();
     _loadDialogs();
+    _subscribe();
   }
 
+  void _subscribe() {
+  final auth = context.read<AuthController>();
+  final userId = auth.currentUserId;
+  if (userId == null) return;
+  _dialogService.subscribe(userId, (dialog) {
+    if (!mounted) return;
+
+    setState(() {
+      _dialogs.insert(0, dialog);
+    });
+  });
+}
+  
   Future<void> _loadDialogs() async {
     final auth = context.read<AuthController>();
     final userId = auth.currentUserId;

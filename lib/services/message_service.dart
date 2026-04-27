@@ -1,3 +1,5 @@
+//import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:pocketbase/pocketbase.dart';
 
@@ -20,6 +22,16 @@ class MessageService {
     );
 
     return records.map(MessageModel.fromRecord).toList();
+  }
+  void subscribe (String dialogId, Function(MessageModel) onNewMessage){
+    final pb = PocketBaseService.instance.client;
+    pb.collection('messages').subscribe('*', (e) {
+    final record = e.record;
+    if (record == null) return;
+    if(record.data['dialog']== dialogId){
+      onNewMessage (MessageModel.fromRecord(record));
+    }
+    });
   }
 
   Future<void> sendMessage({

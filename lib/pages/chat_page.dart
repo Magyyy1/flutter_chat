@@ -32,6 +32,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _loadMessages();
+    _subscribe();
   }
 
   @override
@@ -62,6 +63,14 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _subscribe() {
+    _messageService.subscribe(widget.dialog.id, (message){
+      if (!mounted) return;
+      setState(() {
+       _messages.add(message);}); 
+_scrollToBottom();
+    });
+  }
   Future<void> _sendMessage() async {
     final auth = context.read<AuthController>();
     final currentUserId = auth.currentUserId;

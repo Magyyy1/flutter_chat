@@ -1,5 +1,4 @@
 import 'package:pocketbase/pocketbase.dart';
-
 import '../models/dialog_model.dart';
 import 'pocketbase_service.dart';
 
@@ -21,5 +20,23 @@ class DialogService {
     return records
         .map((record) => DialogModel.fromRecord(record, currentUserId))
         .toList();
+  }
+
+  void subscribe(String userId, Function(DialogModel) onUpdate) {
+    _pb.collection('dialogs').subscribe('*', (e) {
+      final record = e.record;
+      if (record == null) return;
+
+      final user1 = record.data['user1'];
+      final user2 = record.data['user2'];
+
+      if (user1 == userId || user2 == userId) {
+        onUpdate(DialogModel.fromRecord(record, userId));
+      }
+    });
+  }
+
+  void unsubscribe() {
+    _pb.collection('dialogs').unsubscribe('*');
   }
 }
