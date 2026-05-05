@@ -13,16 +13,16 @@ class AuthController extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   RecordModel? get currentUser {
-    final model = _pb.authStore.model;
+    final model = _pb.authStore.record;
     if (model is RecordModel) return model;
     return null;
   }
 
   bool get isAuthenticated =>
-    _pb.authStore.isValid && currentUser != null;
+      _pb.authStore.isValid && currentUser != null;
 
   String? get currentUserId => currentUser?.id;
-
+  
   Future<void> initialize() async {
     try {
       if (_pb.authStore.isValid) {

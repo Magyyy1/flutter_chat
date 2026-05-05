@@ -5,17 +5,13 @@ class AppUser {
   final String name;
   final String email;
 
-  AppUser({
-    required this.id,
-    required this.name,
-    required this.email,
-  });
+  AppUser({required this.id, required this.name, required this.email});
 
-  factory AppUser.fromRecord(RecordModel record) {
+  factory AppUser.fromRecord(RecordModel record) { // <-- тип добавлен
     return AppUser(
       id: record.id,
-      name: record.getStringValue('name'),
-      email: record.getStringValue('email'),
+      name: (record.data['name'] ?? '').toString(),
+      email: (record.data['email'] ?? '').toString(),
     );
   }
 }

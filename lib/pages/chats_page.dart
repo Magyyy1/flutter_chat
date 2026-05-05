@@ -5,6 +5,7 @@ import 'package:flutter_chat/pages/profile_page.dart';
 import 'package:flutter_chat/services/dialog_service.dart';
 import 'package:flutter_chat/widgets/chat_tile.dart';
 import 'package:provider/provider.dart';
+import 'create_dialog_page.dart';
 
 //import 'package:flutter_chat/core/theme.dart';
 //import 'package:flutter_chat/pages/chats_page.dart';
@@ -33,14 +34,21 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   void _subscribe() {
-  final auth = context.read<AuthController>();
-  final userId = auth.currentUserId;
+  final userId = context.read<AuthController>().currentUserId;
   if (userId == null) return;
+
   _dialogService.subscribe(userId, (dialog) {
     if (!mounted) return;
 
     setState(() {
-      _dialogs.insert(0, dialog);
+      final index =
+          _dialogs.indexWhere((d) => d.id == dialog.id);
+
+      if (index != -1) {
+        _dialogs[index] = dialog;
+      } else {
+        _dialogs.insert(0, dialog);
+      }
     });
   });
 }
@@ -67,18 +75,29 @@ class _ChatsPageState extends State<ChatsPage> {
       appBar: AppBar(
         title: const Text('Сообщения'),
         actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfilePage(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.person),
-          ),
-        ],
+  IconButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CreateDialogPage(),
+        ),
+      );
+    },
+    icon: const Icon(Icons.add),
+  ),
+  IconButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ProfilePage(),
+        ),
+      );
+    },
+    icon: const Icon(Icons.person),
+  ),
+],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

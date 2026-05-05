@@ -17,6 +17,15 @@ class ChatPage extends StatefulWidget {
 
   @override
   State<ChatPage> createState() => _ChatPageState();
+
+  // Статический метод для быстрого перехода (можно использовать, но не обязательно)
+  static Future<void> fromIds({
+    required String dialogId,
+    required String otherUserName,
+  }) async {
+    // Здесь можно реализовать навигацию, если нужно.
+    // Пока заглушка, чтобы убрать предупреждение о пустом теле.
+  }
 }
 
 class _ChatPageState extends State<ChatPage> {
@@ -45,32 +54,32 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _loadMessages() async {
     try {
       final messages = await _messageService.getMessages(widget.dialog.id);
-
       if (!mounted) return;
-
       setState(() {
         _messages = messages;
         _isLoading = false;
       });
-
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   void _subscribe() {
-    _messageService.subscribe(widget.dialog.id, (message){
+    _messageService.subscribe(widget.dialog.id, (message) {
       if (!mounted) return;
       setState(() {
-       _messages.add(message);}); 
-_scrollToBottom();
+        // Проверяем, нет ли уже такого сообщения (чтобы избежать дублей при оптимистичной отправке)
+        final exists = _messages.any((m) => m.id == message.id || m.tempId == message.tempId);
+        if (!exists) {
+          _messages.add(message);
+          _scrollToBottom();
+        }
+      });
     });
   }
+
   Future<void> _sendMessage() async {
     final auth = context.read<AuthController>();
     final currentUserId = auth.currentUserId;
@@ -80,18 +89,58 @@ _scrollToBottom();
 
     setState(() => _isSending = true);
 
+    // Оптимистично показываем сообщение сразу
+    final tempMessage = MessageModel(
+      id: '', // или временный UUID
+      tempId: DateTime.now().millisecondsSinceEpoch.toString(), // временный идентификатор
+      dialogId: widget.dialog.id,
+      senderId: currentUserId,
+      senderName: 'Вы', // или из auth
+      text: text,
+      createdAt: DateTime.now(),
+      isSending: true, // флаг для отображения индикатора отправки
+    );
+
+    setState(() {
+      _messages.add(tempMessage);
+      _messageController.clear();
+    });
+    _scrollToBottom();
+
     try {
-      await _messageService.sendMessage(
+      // Отправляем на сервер
+      final sentMessage = await _messageService.sendMessage(
         dialogId: widget.dialog.id,
         senderId: currentUserId,
         text: text,
       );
 
-      _messageController.clear();
-      await _loadMessages();
-    } finally {
+      // Заменяем временное сообщение реальным (находим по tempId)
       if (!mounted) return;
-      setState(() => _isSending = false);
+      setState(() {
+        final index = _messages.indexWhere((m) => m.tempId == tempMessage.tempId);
+        if (index != -1) {
+          _messages[index] = sentMessage;
+        }
+      });
+    } catch (e) {
+      // Ошибка отправки: помечаем сообщение как неудачное или удаляем
+      if (!mounted) return;
+      setState(() {
+        final index = _messages.indexWhere((m) => m.tempId == tempMessage.tempId);
+        if (index != -1) {
+          // Например, показываем ошибку
+          _messages[index] = tempMessage.copyWith(isSending: false, hasError: true);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка отправки: $e')),
+      );
+    } finally {
+      // finally используем только для сброса флага, без return
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
@@ -123,7 +172,6 @@ _scrollToBottom();
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
-
                       return MessageBubble(
                         message: message,
                         isMine: message.senderId == currentUserId,
@@ -134,14 +182,26 @@ _scrollToBottom();
           Row(
             children: [
               Expanded(
-                child: TextField(controller: _messageController),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: const InputDecoration(
+                      hintText: 'Сообщение...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                      ),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
               ),
               IconButton(
-                onPressed: _sendMessage,
+                onPressed: _isSending ? null : _sendMessage,
                 icon: const Icon(Icons.send),
               ),
             ],
-          )
+          ),
         ],
       ),
     );

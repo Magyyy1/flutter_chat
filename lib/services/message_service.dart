@@ -1,8 +1,4 @@
-//import 'dart:math';
-
-import 'package:flutter/foundation.dart';
 import 'package:pocketbase/pocketbase.dart';
-
 import '../models/message_model.dart';
 import 'pocketbase_service.dart';
 
@@ -10,66 +6,35 @@ class MessageService {
   final PocketBase _pb = PocketBaseService.instance.client;
 
   Future<List<MessageModel>> getMessages(String dialogId) async {
-    final filter = _pb.filter(
-      'dialog = {:dialogId}',
-      {'dialogId': dialogId},
-    );
-
     final records = await _pb.collection('messages').getFullList(
-      expand: 'sender',
-      filter: filter,
+      filter: 'dialog = "$dialogId"',
       sort: 'created',
+      expand: 'sender',
     );
-
-    return records.map(MessageModel.fromRecord).toList();
+    return records.map((r) => MessageModel.fromRecord(r)).toList();
   }
-  void subscribe (String dialogId, Function(MessageModel) onNewMessage){
-    final pb = PocketBaseService.instance.client;
-    pb.collection('messages').subscribe('*', (e) {
-    final record = e.record;
-    if (record == null) return;
-    if(record.data['dialog']== dialogId){
-      onNewMessage (MessageModel.fromRecord(record));
-    }
+
+  void subscribe(String dialogId, Function(MessageModel) onUpdate) {
+    _pb.collection('messages').subscribe('*', (e) {
+      final record = e.record;
+      if (record != null && record.getStringValue('dialog') == dialogId) {
+        onUpdate(MessageModel.fromRecord(record));
+      }
     });
   }
 
-  Future<void> sendMessage({
-    required String dialogId,
-    required String senderId,
-    required String text,
-  }) async {
-    await _pb.collection('messages').create(
-      body: {
-        'dialog': dialogId,
-        'sender': senderId,
-        'text': text,
-        'is_read': false,
-      },
-    );
-
-    await _pb.collection('dialogs').update(
-      dialogId,
-      body: {
-        'last_text': text,
-        'last_message_at': DateTime.now().toUtc().toIso8601String(),
-      },
-    );
-  }
-
-  Future<dynamic> subscribeToDialog(
-    String dialogId,
-    VoidCallback onEvent,
-  ) async {
-    final filter = _pb.filter(
-      'dialog = {:dialogId}',
-      {'dialogId': dialogId},
-    );
-
-    return _pb.collection('messages').subscribe(
-      '*',
-      (event) => onEvent(),
-      filter: filter,
-    );
-  }
+  Future<MessageModel> sendMessage({
+  required String dialogId,
+  required String senderId,
+  required String text,
+}) async {
+  final pb = PocketBaseService.instance.client;
+  final record = await pb.collection('messages').create(body: {
+    'dialog': dialogId,
+    'sender': senderId,
+    'text': text,
+  });
+  final fullRecord = await pb.collection('messages').getOne(record.id, expand: 'sender');
+  return MessageModel.fromRecord(fullRecord);
+}
 }
